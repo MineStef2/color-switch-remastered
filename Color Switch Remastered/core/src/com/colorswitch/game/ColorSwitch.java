@@ -27,6 +27,7 @@ public class ColorSwitch extends Game {
 	private static final List<ButtonEventListener> BUTTON_EVENT_LISTENERS = new ArrayList<ButtonEventListener>();
 	private int currentMouseX = Integer.MIN_VALUE, currentMouseY = Integer.MIN_VALUE;
 
+
 	@Override
 	public void create() {
 		this.batch = new SpriteBatch();
@@ -72,16 +73,18 @@ public class ColorSwitch extends Game {
 		}
 	}
 
-	public static Button addButton(Texture texture, Screen owner, Vector2 scale) {
-		Button button = new Button(texture, owner, scale);
+	public static Button addButton(Texture texture, Vector2 position, Vector2 scale, Screen owner) {
+		Button button = new Button(texture, position, scale, owner);
 		REGISTERED_BUTTONS.add(button);
 		return button;
 	}
 
+	public static Button addButton(Texture texture, Vector2 position, Screen owner) {
+		return addButton(texture, position, new Vector2(1f, 1f), owner);
+	}
+
 	public static Button addButton(Texture texture, Screen owner) {
-		Button button = new Button(texture, owner);
-		REGISTERED_BUTTONS.add(button);
-		return button;
+		return addButton(texture, new Vector2(0, 0), new Vector2(1f, 1f), owner);
 	}
 
 	public static Button addButton(Button button) {
@@ -109,11 +112,5 @@ public class ColorSwitch extends Game {
 
 	public static List<Button> getRegisteredButtons() {
 		return REGISTERED_BUTTONS;
-	}
-
-	public static enum Axis {
-		X_AXIS,
-		Y_AXIS,
-		BOTH;
 	}
 }

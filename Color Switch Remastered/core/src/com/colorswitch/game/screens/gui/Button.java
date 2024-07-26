@@ -5,29 +5,21 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.colorswitch.game.screens.Screen;
 
-public class Button extends GUIObject{
+public class Button extends GUIComponent{
 	private Vector2 originalScale;
 	private boolean hovering;
 	public static final Color HOVER_COLOR = new Color(0.78431f, 0.78431f, 0.78431f, 1);
 	private boolean overrideHoverColor;
 	private Color overridenHoverColor;
 
-	public Button(Texture texture, Screen owner, Vector2 scale) {
+	public Button(Texture texture, Vector2 position, Vector2 scale, Screen owner) {
 		super(texture, owner, scale);
 	}
 
-	public Button(Texture texture, Screen owner) {
-		this(texture, owner, new Vector2(1f, 1f));
-	}
-
 	public Button overrideHoverColor(Color newColor) {
-		this.overridenHoverColor = newColor;
 		this.overrideHoverColor = true;
+		this.overridenHoverColor = newColor;
 		return this;
-	}
-
-	public void doFadeAnimation(float fadeAmount) {
-		this.setColor(this.getColor().r, this.getColor().g, this.getColor().b, this.getColor().a + fadeAmount);
 	}
 
 	public boolean isHovering() {

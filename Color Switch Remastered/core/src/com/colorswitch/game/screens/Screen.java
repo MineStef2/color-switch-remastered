@@ -11,6 +11,10 @@ public class Screen extends ScreenAdapter{
 	protected SpriteBatch batch;
 	private static final List<DrawCall> DRAW_CALLS = new ArrayList<DrawCall>();
 
+	public Screen(SpriteBatch batch) {
+		this.batch = batch;
+	}
+
 	public void addDrawCall(DrawCall object) {
 		DRAW_CALLS.add(object);
 	}
