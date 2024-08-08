@@ -1,16 +1,19 @@
-package com.colorswitch.game.screens.gui;
+package com.colorswitch.game.gui;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
+import com.colorswitch.game.ScreenBinding;
 import com.colorswitch.game.screens.Screen;
 
 public class Button extends GUIComponent{
-	private Vector2 originalScale;
-	private boolean hovering;
+	public static final Vector2 BUTTON_SCALE = new Vector2(0.5f, 0.5f);
 	public static final Color HOVER_COLOR = new Color(0.78431f, 0.78431f, 0.78431f, 1);
+	private boolean hovering;
 	private boolean overrideHoverColor;
 	private Color overridenHoverColor;
+	private Screen boundScreen;
+	private ScreenBinding screenBinding;
 
 	public Button(Texture texture, Vector2 position, Vector2 scale, Screen owner) {
 		super(texture, owner, scale);
@@ -19,6 +22,21 @@ public class Button extends GUIComponent{
 	public Button overrideHoverColor(Color newColor) {
 		this.overrideHoverColor = true;
 		this.overridenHoverColor = newColor;
+		return this;
+	}
+
+	public Button bindScreen(Screen screen) {
+		this.boundScreen = screen;
+		return this;
+	}
+
+	public Button applyScreenBinding(ScreenBinding binding) {
+		this.screenBinding = binding;
+		return this;
+	}
+
+	public Button setAsBackButton() {
+		this.owner.setBackButton(this);
 		return this;
 	}
 
@@ -42,12 +60,16 @@ public class Button extends GUIComponent{
 		}
 	}
 
-	public Vector2 getOriginalScale() {
-		return originalScale;
-	}
-
 	public Color getOverridenHoverColor() {
 		return overridenHoverColor;
+	}
+
+	public Screen getBoundScreen() {
+		return boundScreen;
+	}
+
+	public ScreenBinding getScreenBinding() {
+		return screenBinding;
 	}
 
 	public static enum ButtonEventType{

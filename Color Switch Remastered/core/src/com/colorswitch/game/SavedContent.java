@@ -1,4 +1,4 @@
-package com.colorswitch.game.screens;
+package com.colorswitch.game;
 
 public class SavedContent {
 //		private SpriteBatch batch;

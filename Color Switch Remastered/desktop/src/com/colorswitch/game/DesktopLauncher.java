@@ -12,6 +12,7 @@ public class DesktopLauncher {
 		config.setTitle("Color Switch Remastered");
 		config.setWindowIcon(FileType.Internal, "icon.jpg");
 		config.setDecorated(false);
+//		config.setForegroundFPS(10);
 		config.setIdleFPS(30);
 		config.setWindowedMode(ColorSwitch.WINDOW_WIDTH, ColorSwitch.WINDOW_HEIGHT);
 		new Lwjgl3Application(new ColorSwitch(), config);

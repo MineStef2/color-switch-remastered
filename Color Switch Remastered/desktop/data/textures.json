@@ -1,0 +1,22 @@
+{
+	"background": "background_screen",
+	"arrow": "arrow",
+	"settings": "settings",
+	"info": "info",
+	"tasks": "tasks",
+	"prize": "prize",
+	"endless": "endless",
+	"title": "title",
+	"circle": "circle",
+	"play1": "play_layer1",
+	"play2": "play_layer2",
+	"play3": "play_layer3",
+	"play4": "play_layer4",
+	"modes": "modes",
+	"media": "media",
+	"star": "star",
+	"shop": "shop",
+	"stats": "stats",
+	"wardrobe": "wardrobe",
+	"back": "back"
+}
