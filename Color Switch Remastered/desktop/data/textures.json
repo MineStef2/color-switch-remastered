@@ -18,5 +18,6 @@
 	"shop": "shop",
 	"stats": "stats",
 	"wardrobe": "wardrobe",
-	"back": "back"
+	"back": "back",
+	"settingsTitle": "settings_title"
 }

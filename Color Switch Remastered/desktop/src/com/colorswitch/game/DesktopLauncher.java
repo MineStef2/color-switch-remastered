@@ -14,7 +14,8 @@ public class DesktopLauncher {
 		config.setDecorated(false);
 //		config.setForegroundFPS(10);
 		config.setIdleFPS(30);
-		config.setWindowedMode(ColorSwitch.WINDOW_WIDTH, ColorSwitch.WINDOW_HEIGHT);
-		new Lwjgl3Application(new ColorSwitch(), config);
+		final int windowWidth = 480, windowHeight = 840;
+		config.setWindowedMode(windowWidth, windowHeight);
+		new Lwjgl3Application(new ColorSwitch(new GameConfig(false, windowWidth, windowHeight)), config);
 	}
 }
