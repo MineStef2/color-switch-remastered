@@ -1,5 +1,5 @@
 buildscript {
-    
+
 
     repositories {
         mavenLocal()
@@ -10,7 +10,6 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.1.2'
-        
 
     }
 }
@@ -37,6 +36,9 @@ allprojects {
         maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
         maven { url "https://oss.sonatype.org/content/repositories/releases/" }
         maven { url "https://jitpack.io" }
+        maven { url "https://mvnrepository.com/artifact/net.sf.jopt-simple/jopt-simple"} //for jopt-simple lib
+     //   maven { url "https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api" } //log4j api
+     //   maven { url "https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core" } //log4j core
     }
 }
 
@@ -49,7 +51,8 @@ project(":desktop") {
         api "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
         api "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
         api "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-desktop"
-        
+		implementation "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
+
     }
 }
 
@@ -61,6 +64,14 @@ project(":core") {
         api "com.badlogicgames.gdx:gdx:$gdxVersion"
         api "com.badlogicgames.box2dlights:box2dlights:$box2DLightsVersion"
         api "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
+        // https://mvnrepository.com/artifact/net.sf.jopt-simple/jopt-simple
+    	implementation group: 'net.sf.jopt-simple', name: 'jopt-simple', version: '5.0.4'
+		api "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+		// https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api
+	//	implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.19.0'
+		// https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core
+	//	implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.19.0'
+
     }
 }
 
@@ -92,6 +103,16 @@ project(":android") {
         natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-arm64-v8a"
         natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-x86"
         natives "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-x86_64"
-        
+		// https://mvnrepository.com/artifact/net.sf.jopt-simple/jopt-simple
+    	implementation group: 'net.sf.jopt-simple', name: 'jopt-simple', version: '5.0.4'
+    	natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-arm64-v8a"
+		natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-armeabi-v7a"
+		natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-x86"
+		natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-x86_64"
+		// https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api
+	//	implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.19.0'
+		// https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core
+	//	implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.19.0'
+
     }
 }

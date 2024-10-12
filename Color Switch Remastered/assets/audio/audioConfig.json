@@ -1,0 +1,15 @@
+{
+	"mainMenu": {
+		"volume": 100,
+		"loop": true,
+		"source": "MainMenu.mp3",
+		"audioType": "music"
+	},
+
+	"click": {
+		"volume": 25,
+		"loop": false,
+		"source": "click.mp3",
+		"audioType": "sound"
+	}
+}

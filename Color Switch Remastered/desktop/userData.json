@@ -1,0 +1,35 @@
+{
+	"stars": 11000,
+	"challenges": {
+		"challenge level": {
+			"completed": 0,
+			"required": 1,
+			"reward": 50,
+			"level": {
+				"name": "Block",
+				"number": 32
+			}
+		},
+		"daily double": {
+			"completed": 0,
+			"required": 1,
+			"reward": 100,
+			"level": {
+				"name": "Lucky",
+				"number": 43
+			}
+		},
+		"finish levels": {
+			"completed": 0,
+			"required": 5,
+			"reward": 100,
+			"mode": "any"
+		},
+		"score points": {
+			"completed": 0,
+			"required": 20,
+			"reward": 75,
+			"mode": "Sled Endless"
+		}
+	}
+}
