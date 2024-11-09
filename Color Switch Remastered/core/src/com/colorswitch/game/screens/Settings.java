@@ -9,21 +9,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.badlogic.gdx.Files.FileType;
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.Json;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.JsonValue.ValueType;
 import com.badlogic.gdx.utils.JsonWriter.OutputType;
-import com.colorswitch.game.ColorSwitch;
 import com.colorswitch.game.Logger;
-import com.colorswitch.game.ScreenManager;
 import com.colorswitch.game.SettingTracker;
-import com.colorswitch.game.TextureManager;
+import com.colorswitch.game.SharedConstants;
 import com.colorswitch.game.WindowUtils;
 import com.colorswitch.game.gui.GUIComponent;
 import com.colorswitch.game.gui.button.Button;
@@ -37,34 +35,32 @@ public class Settings extends Screen {
 	public static SettingEntry<Boolean> gameOverFlashFX = new SettingEntry<Boolean>("gameOverFlashFX", ValueType.booleanValue);
 	private static final Logger LOGGER = new Logger(Settings.class);
 	private static final String DEFAULT_SETTINGS = "{\"music\":true,\"gameOverFlashFX\":true,\"soundEffects\":true,\"vibrations\":true}";
-	private static final Vector2 DESKTOP_SETTING_SCALE = new Vector2(0.45f, 0.45f);
-	private static final Vector2 PLATFORM_SCALE = ColorSwitch.getPlatformScale(DESKTOP_SETTING_SCALE);
 	private static final List<SettingTracker> SETTING_TRACKERS = new ArrayList<SettingTracker>();
-	private final FileHandle file;
+	private FileHandle file;
 	private Button musicButton;
 	private Button soundEffectsButton;
 	private Button vibrationsButton;
 	private Button flashFXButton;
 	private GUIComponent flashFX;
 
-	public Settings(SpriteBatch batch, TextureManager textureManager, ScreenManager screenManager, FileHandle file) {
-		super(batch, textureManager, screenManager);
-		this.file = file;
+	@Override
+	public void initializeUI() {
+		this.file = Gdx.files.getFileHandle("settings.json", FileType.Local);
 
 		Button back = this.addDefaultBackButton();
 		GUIComponent title = new GUIComponent(this.getTexture("settings_title"), this)
-				.applyScale(Button.PLATFORM_SCALE).flipYCoordinate().flipXCoordinate();
+				.applyScale(SharedConstants.commonScale).flipYCoordinate().flipXCoordinate();
 		title.shiftPosition(WindowUtils.getCenterX(title.getWidth()) - back.getWidth() / 2,
 				EDGE_OFFSET + 5 + (androidInstance ? Screen.STATUS_BAR_OFFSET : 0));
 
 		GUIComponent panel = new GUIComponent(this.getTexture("settingsPanel"), this)
-				.applyScale(PLATFORM_SCALE);
+				.applyScale(SharedConstants.commonScale);
 		panel.shiftPosition(WindowUtils.getCenterX(panel.getWidth()), WindowUtils.getCenterY(panel.getHeight()));
 
-		this.musicButton = (Button) ColorSwitch.addButton(this.getTexture("music"), this)
+		this.musicButton = (Button) this.newButton(this.getTexture("music"))
 				.changeHoverBehaviors(null, null).applyClickBehavior((button, xpos, ypos) -> {
 					this.<Boolean>changeSetting(music, !music.getValue());
-					AudioOutput mainMenuAudio = this.game.getSoundManager().getAudioOutputs().get("mainMenu");
+					AudioOutput mainMenuAudio = this.game.getSoundManager().getAudioOutput("mainMenu");
 					if (music.getValue()) {
 						this.musicButton.setColor(Color.WHITE);
 						mainMenuAudio.resume();
@@ -72,39 +68,41 @@ public class Settings extends Screen {
 						this.musicButton.setColor(TRANSPARENT);
 						mainMenuAudio.pause();
 					}
-				}).applyScale(PLATFORM_SCALE);
-		this.musicButton.shiftPosition(this.musicButton.getWidth() - (androidInstance ? 20 : 12f),
+				}).applyScale(SharedConstants.commonScale);
+
+		float scaleDifferential = (SharedConstants.PREFERRED_WIDTH - this.game.getConfig().window.width) / 2;
+		this.musicButton.shiftPosition(this.musicButton.getWidth() - (androidInstance ? 20 : 40 + scaleDifferential),
 				WindowUtils.getCenterY(this.musicButton.getHeight()) + this.musicButton.getHeight() / 1.505f
 						+ (androidInstance ? 5 : 2.5f));
 
-		this.soundEffectsButton = (Button) ColorSwitch.addButton(this.getTexture("audio"), this)
+		this.soundEffectsButton = (Button) this.newButton(this.getTexture("audio"))
 				.changeHoverBehaviors(null, null).applyClickBehavior((button, xpos, ypos) -> {
 					this.<Boolean>changeSetting(soundEffects, !soundEffects.getValue());
 					this.soundEffectsButton.setColor(soundEffects.getValue() ? Color.WHITE : TRANSPARENT);
-				}).applyScale(PLATFORM_SCALE);
+				}).applyScale(SharedConstants.commonScale);
 		this.soundEffectsButton.shiftPosition(WindowUtils.getCenterX(this.soundEffectsButton.getWidth()),
 				WindowUtils.getCenterY(this.soundEffectsButton.getHeight())
 						+ this.soundEffectsButton.getHeight() / 1.45f);
 
-		this.vibrationsButton = (Button) ColorSwitch.addButton(this.getTexture("vibrations"), this)
+		this.vibrationsButton = (Button) this.newButton(this.getTexture("vibrations"))
 				.changeHoverBehaviors(null, null).applyClickBehavior((button, xpos, ypos) -> {
 					this.<Boolean>changeSetting(vibrations, !vibrations.getValue());
 					this.vibrationsButton.setColor(vibrations.getValue() ? Color.WHITE : TRANSPARENT);
-				}).applyScale(PLATFORM_SCALE);
+				}).applyScale(SharedConstants.commonScale);
 		this.vibrationsButton.shiftPosition(this.musicButton.getX() - 0.5f, this.musicButton.getY() - 0.5f)
 				.flipXCoordinate();
 
-		this.flashFX = new GUIComponent(this.getTexture("power"), this).applyScale(PLATFORM_SCALE);
-		this.flashFX.shiftPosition(this.flashFX.getWidth() - (androidInstance ? 40 : 20f),
+		this.flashFX = new GUIComponent(this.getTexture("power"), this).applyScale(SharedConstants.commonScale);
+		this.flashFX.shiftPosition(this.flashFX.getWidth() - (androidInstance ? 40 : 49f + scaleDifferential),
 				WindowUtils.getCenterY(this.flashFX.getHeight()) - this.flashFX.getHeight()
-						- (androidInstance ? 16 : 8f));
+						- (androidInstance ? 16 : 9));
 
-		this.flashFXButton = (Button) ColorSwitch.addButton(this.getTexture("flashFxButton"), this)
+		this.flashFXButton = (Button) this.newButton(this.getTexture("flashFxButton"))
 				.changeHoverBehaviors(null, null).applyClickBehavior((button, xpos, ypos) -> {
 					this.<Boolean>changeSetting(gameOverFlashFX, !gameOverFlashFX.getValue());
 					this.flashFX.setColor(gameOverFlashFX.getValue() ? Color.WHITE : TRANSPARENT);
-				}).applyScale(PLATFORM_SCALE);
-		this.flashFXButton.shiftPosition(this.flashFXButton.getWidth() / 2.3544f,
+				}).applyScale(SharedConstants.commonScale);
+		this.flashFXButton.shiftPosition(this.flashFX.getX() + this.flashFX.getWidth() + 20f,
 				WindowUtils.getCenterY(this.flashFXButton.getHeight()) - this.flashFXButton.getHeight() - 3f);
 
 		try {
@@ -122,8 +120,7 @@ public class Settings extends Screen {
 		JsonValue fields = new JsonReader().parse(this.file);
 		if (fields == null) {
 			LOGGER.error(this.file + " does not contain setting entries");
-			throw new GdxRuntimeException(
-					"Could not find setting entries in settings file " + this.file.file().getAbsolutePath());
+			throw new GdxRuntimeException("Could not find setting entries in settings file " + this.file.file().getAbsolutePath());
 		}
 		try {
 			SETTING_MAP.forEach((name, setting) -> setting.compute(fields));

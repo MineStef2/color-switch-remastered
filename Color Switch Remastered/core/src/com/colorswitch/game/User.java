@@ -15,7 +15,7 @@ public class User {
 	private int stars;
 	private JsonValue challenges;
 
-	public User(FileHandle dataFile, ColorSwitch game) {
+	public User(FileHandle dataFile) {
 		this.dataFile = dataFile;
 
 		LOGGER.info("Gathering user data...");

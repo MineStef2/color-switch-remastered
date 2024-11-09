@@ -1,13 +1,16 @@
 package com.colorswitch.game.gui;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Application.ApplicationType;
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.colorswitch.game.ColorSwitch;
+import com.colorswitch.game.WindowUtils;
+import com.colorswitch.game.GameConfig.WindowConfig;
 import com.colorswitch.game.gui.button.Button;
 import com.colorswitch.game.screens.Screen;
+import com.colorswitch.game.screens.Screens;
 
 public class ModesButton extends CompositeGUIComponent {
 	public static final Vector2 DESKTOP_SCALE_MAX = new Vector2(0.4f, 0.4f);
@@ -24,12 +27,14 @@ public class ModesButton extends CompositeGUIComponent {
 
 	public ModesButton(Texture buttonTexture, Texture arrowTexture, Screen owner) {
 		super(owner);
-		this.modes = (Button) ColorSwitch.addButton(buttonTexture, owner).overrideHoverColor(new Color(1, 1, 1, 0.8f));
+
+		int e; 			// FIXME: need to refactor this code ASAP
+		WindowConfig window = ColorSwitch.getInstance().getConfig().window;
+		this.modes = (Button) this.getOwner().newButton(buttonTexture).overrideHoverColor(new Color(1, 1, 1, 0.8f)).bindScreen(Screens.GAME_MODES);
 		this.modes.setScale(PLATFORM_SCALE_MAX.x, PLATFORM_SCALE_MAX.y);
 		this.isModesAtMaxScale = true;
-		this.modes.setBounds((ColorSwitch.getInstance().getConfig().window.width - this.modes.getWidth()) / 2,
-				ColorSwitch.getInstance().getConfig().window.height / 2
-						- this.modes.getHeight() * PLATFORM_SCALE_MAX.x * (androidInstance ? 3.5f : 4),
+		this.modes.setBounds(WindowUtils.getCenterX(this.modes.getWidth()), window.height / 2
+						- this.modes.getHeight() * PLATFORM_SCALE_MAX.x * (androidInstance ? 4f : 4.5f),
 				this.modes.getWidth(), this.modes.getHeight());
 		this.arrows[1] = new GUIComponent(arrowTexture, owner).flipXAxis();
 		this.arrows[0] = new GUIComponent(arrowTexture, owner);

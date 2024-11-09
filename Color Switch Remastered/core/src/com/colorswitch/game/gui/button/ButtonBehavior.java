@@ -8,15 +8,16 @@ public class ButtonBehavior {
 	private ButtonHoverBehavior hoverBehavior;
 	private ButtonHoverOutBehavior hoverOutBehavior;
 	private AudioOutput clickSound;
-	private final Button owner;
+	private final Button targetButton;
 
-	public ButtonBehavior(Button owner) {
-		this.owner = owner;
+	public ButtonBehavior(Button targetButton) {
+		this.targetButton = targetButton;
 		this.clickBehavior = null;
-		this.hoverBehavior = (button, xpos, ypos) -> this.owner.setColor(owner.isHoverColorOverridden()
-				? owner.getOverridenHoverColor()
+		this.hoverBehavior = (button, xpos, ypos) -> this.targetButton.setColor(targetButton.isHoverColorOverridden()
+				? targetButton.getOverridenHoverColor()
 				: Button.HOVER_COLOR);
-		this.hoverOutBehavior = (button, xpos, ypos) -> this.owner.setColor(Color.WHITE);
+		this.hoverOutBehavior = (button, xpos, ypos) -> this.targetButton.setColor(Color.WHITE);
+		this.clickSound = this.targetButton.getOwner().getSoundManager().getAudioOutput("click");
 	}
 
 	public void setClickBehavior(ButtonClickBehavior clickBehavior) {

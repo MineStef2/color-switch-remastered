@@ -23,14 +23,16 @@ public class GameConfig {
 		public final IconConfig icon;
 		public final SettingsConfig settings;
 		public final UserConfig user;
+		public final GameModesConfig gameModes;
 
 		public FileConfig(TextureConfig textureConfig, AudioConfig audioConfig, IconConfig iconConfig,
-				SettingsConfig settingsConfig, UserConfig userConfig) {
+				SettingsConfig settingsConfig, UserConfig userConfig, GameModesConfig gameModesConfig) {
 			this.audio = audioConfig;
 			this.texture = textureConfig;
 			this.icon = iconConfig;
 			this.settings = settingsConfig;
 			this.user = userConfig;
+			this.gameModes = gameModesConfig;
 		}
 
 		static class TextureConfig {
@@ -86,6 +88,18 @@ public class GameConfig {
 			public UserConfig(File dataFile, FileType dataFileType) {
 				this.dataFile = dataFile;
 				this.dataFileType = dataFileType;
+			}
+		}
+
+		static class GameModesConfig {
+			public final File modesDir;
+			public final FileType modesDirFileType;
+			public final File modeSourcesFile;
+
+			public GameModesConfig(File modesDir, FileType modesDirFileType, File modeSourcesFile) {
+				this.modesDir = modesDir;
+				this.modesDirFileType = modesDirFileType;
+				this.modeSourcesFile = modeSourcesFile;
 			}
 		}
 	}

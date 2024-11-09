@@ -1,0 +1,26 @@
+{
+	"banner": "banner_classic",
+	"topColor": "#000000",
+	"levels": {
+		"1": {
+			"difficulty": "easy",
+			"objects": {
+			}
+		},
+		"2": {
+			"difficulty": "medium",
+			"objects": {
+			}
+		},
+		"3": {
+			"difficulty": "hard",
+			"objects": {
+			}
+		},
+		"4": {
+			"difficulty": "bonus",
+			"objects": {
+			}
+		}
+	}
+}

@@ -29,7 +29,7 @@ public class PlayButton {
 						WindowUtils.getCenterY(layer3.getHeight() * PLATFORM_SCALE.y))
 				.setOriginInCenter()
 				.withDrawCall((deltaTime) -> this.layers[2].rotate(CIRCLE_ROTATION_SPEED * deltaTime));
-		this.layers[3] = ColorSwitch.addButton(layer4, owner).applyScale(PLATFORM_SCALE).shiftPosition(
+		this.layers[3] = owner.newButton(layer4).applyScale(PLATFORM_SCALE).shiftPosition(
 				WindowUtils.getCenterX((layer4.getWidth() * PLATFORM_SCALE.x)),
 				WindowUtils.getCenterY(layer4.getHeight() * PLATFORM_SCALE.y));
 	}

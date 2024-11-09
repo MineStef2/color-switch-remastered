@@ -1,6 +1,5 @@
 package com.colorswitch.game;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +9,9 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.assets.AssetManager;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.utils.GdxRuntimeException;
 
-public final class TextureManager {
+public final class TextureManager implements ProcessTimer{
 	private static final Logger LOGGER = new Logger(TextureManager.class);
 	private final FileHandle texturesFolder;
 	private final String extension;
@@ -19,25 +19,23 @@ public final class TextureManager {
 
 	public TextureManager(FileHandle texturesFolder, String extension) {
 		LOGGER.info("Loading textures...");
-		Instant startTime = Instant.now();
+		Instant startTime = this.startTimer();
 		this.texturesFolder = texturesFolder;
 		this.extension = extension;
 		this.assetManager = new AssetManager();
 
 		List<String> fileNames = new ArrayList<String>();
 		if (Gdx.app.getType() != ApplicationType.Android) {
-			String[] names = this.texturesFolder.readString().split("\n");                     /* XXX */
+			String[] names = this.texturesFolder.readString().split("\n");                     					/* XXX */
 			fileNames = List.of(names);
 		} else {
-			FileHandle[] files = this.texturesFolder.list();
-			for (FileHandle file : files) {
+			for (FileHandle file : this.texturesFolder.list()) {
 				fileNames.add(file.name());
 			}
 		}
 		fileNames.forEach((fileName) -> this.assetManager.load(texturesFolder.name() + "/" + fileName, Texture.class));
 		this.assetManager.finishLoading();
-		Instant endTime = Instant.now();
-		LOGGER.info("Finished loading in " + Duration.between(startTime, endTime).toMillis() + "ms");
+		LOGGER.info("Finished loading textures in " + this.getStringMillisElapsed(startTime));
 	}
 
 	public String getFolderName() {
@@ -48,7 +46,12 @@ public final class TextureManager {
 		return extension;
 	}
 
-	Texture getTexture(String name) {
-		return this.assetManager.get(this.texturesFolder.name() + "/" + name + this.extension, Texture.class);
+	public Texture getTexture(String name) {
+		try {
+			return this.assetManager.get(this.texturesFolder.name() + "/" + name + this.extension, Texture.class);
+		} catch (GdxRuntimeException assetNotLoaded) {
+			LOGGER.error("Attempted to use texture "+ name + ", but it does not exist");
+		}
+		return new Texture("missingTexture.png");
 	}
 }

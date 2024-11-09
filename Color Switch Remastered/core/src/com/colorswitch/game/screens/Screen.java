@@ -3,53 +3,76 @@ package com.colorswitch.game.screens;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.badlogic.gdx.Application.ApplicationType;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ScreenAdapter;
-import com.badlogic.gdx.Application.ApplicationType;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.Null;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.colorswitch.game.ColorSwitch;
+import com.colorswitch.game.Debug;
 import com.colorswitch.game.DrawCall;
 import com.colorswitch.game.Logger;
 import com.colorswitch.game.ScreenManager;
+import com.colorswitch.game.SharedConstants;
 import com.colorswitch.game.TextureManager;
 import com.colorswitch.game.gui.GUIComponent;
+import com.colorswitch.game.gui.StringComponent;
 import com.colorswitch.game.gui.button.Button;
+import com.colorswitch.game.sound.SoundManager;
 
 public abstract class Screen extends ScreenAdapter {
 	protected static final boolean androidInstance = Gdx.app.getType() == ApplicationType.Android;
 	public static final float EDGE_OFFSET = androidInstance ? 50 : 20;
 	public static final float STATUS_BAR_OFFSET = 70f;
 	private static final Logger LOGGER = new Logger(Screen.class);
-	protected final TextureManager textureManager;
 	protected ScreenManager screenManager;
+	protected SoundManager soundManager;
+	protected TextureManager textureManager;
 	protected final ColorSwitch game;
 	protected boolean active;
 	private Button backButton;
 	private SpriteBatch batch;
 	private final List<DrawCall> drawCalls;
 	private final List<GUIComponent> components;
+	private List<Button> registeredButtons;
 	private ScreenAnimation screenAnimation;
 
-	public Screen(SpriteBatch batch, TextureManager textureManager, ScreenManager screenManager) {
-		LOGGER.info("creating screen " + ColorSwitch.format(this));
-		this.batch = batch;
+	public Screen() {
+		LOGGER.debug("creating screen " + logFormat(this));
+		this.game = ColorSwitch.getInstance();
 		this.drawCalls = new ArrayList<DrawCall>();
 		this.components = new ArrayList<GUIComponent>();
-		this.textureManager = textureManager;
-		this.screenManager = screenManager;
-		this.screenAnimation = this.screenManager.getDefaultAnimation();
-		this.game = ColorSwitch.getInstance();
+		this.screenManager = this.game.getScreenManager();
+		this.soundManager = this.game.getSoundManager();
+		this.textureManager = this.game.getTextureManager();
+		this.registeredButtons = new ArrayList<Button>();
+		this.screenAnimation = ScreenAnimation.DEFAULT_ANIMATION;
+		this.batch = this.game.getBatch();
 	}
+
+	public abstract void initializeUI();
 
 	public void addDrawCall(DrawCall call) {
 		this.drawCalls.add(call);
 	}
 
+	public void addDrawCalls(DrawCall... calls) {
+		for (DrawCall drawCall: calls) {
+			this.addDrawCall(drawCall);
+		}
+	}
+
 	public void removeDrawCall(DrawCall call) {
 		this.drawCalls.remove(call);
+	}
+
+	public void removeDrawCalls(DrawCall... calls) {
+		for (DrawCall drawCall: calls) {
+			this.removeDrawCall(drawCall);
+		}
 	}
 
 	public void addComponent(GUIComponent component) {
@@ -64,24 +87,82 @@ public abstract class Screen extends ScreenAdapter {
 
 	@Override
 	public void render(float delta) {
-		ScreenUtils.clear(ColorSwitch.BACKGROUND_COLOR, true);
+		ScreenUtils.clear(ColorSwitch.BACKGROUND_COLOR);
 		super.render(delta);
 		this.batch.begin();
 		this.drawCalls.forEach((call) -> call.draw(delta));
 		this.batch.end();
 	}
 
-	protected Button addDefaultBackButton() {
-		this.backButton = (Button) ColorSwitch.addButton(this.getTexture("back"), this)
-				.applyScreen("mainMenu") 								/* XXX: not suitable for later screens */
-				.applyScale(Button.PLATFORM_SCALE)
+	protected Button addDefaultBackButton(Texture texture) {
+		return this.backButton = (Button) this.newButton(texture)
+				.bindScreen(Screens.PREVIOUS)
+				.applyScale(SharedConstants.commonScale)
 				.flipYCoordinate()
 				.shiftPosition(EDGE_OFFSET, EDGE_OFFSET + (androidInstance ? Screen.STATUS_BAR_OFFSET : 0));
-		return backButton;
+	}
+
+	protected Button addDefaultBackButton() {
+		return this.addDefaultBackButton(this.getTexture("back"));
+	}
+
+	protected Button addDefaultHomeButton() {
+		return this.addDefaultBackButton(this.getTexture("home")).bindScreen(Screens.MAIN_MENU);
+	}
+
+	protected GUIComponent addDefaultTopPadding() {
+		GUIComponent top = new GUIComponent(this.getTexture("top"), this)
+				.applyScale(ColorSwitch.getPlatformScale()).flipYCoordinate();
+		if (Gdx.app.getType() == ApplicationType.Desktop) {
+			top.translateY(20);
+		}
+		return top;
+	}
+
+	protected StringComponent addDefaultTitle(String text, Button backButton) {
+		StringComponent title = new StringComponent(text, this)
+				.setSize(50); 										/* invalid for android */
+		title.setPosition(new Vector2(backButton.getX() + backButton.getWidth() + EDGE_OFFSET / 2,
+				backButton.getY() + (backButton.getHeight() + title.getHeight()) / 2));
+		return title;
+	}
+
+	@Null
+	@Debug
+	public static String logFormat(@Null Object object) {
+		try {
+			return object.toString().replace("com.colorswitch.game.screens.", "");
+		} catch (NullPointerException nullObject) {
+			return null;
+		}
+	}
+
+	public Button newGameModeButton(String banner, String gameModeName) {
+		return this.newButton(this.getTexture(banner))
+				.bindScreen(this.screenManager.getGameModeScreenInstance(gameModeName));
+	}
+
+	public Button newButton(Texture texture, Vector2 position, Vector2 scale) {
+		Button button = new Button(texture, position, scale, this);
+		this.registeredButtons.add(button);
+		return button;
+	}
+
+	public Button newButton(Texture texture, Vector2 position) {
+		return this.newButton(texture, position, new Vector2(1f, 1f));
+	}
+
+	public Button newButton(Texture texture) {
+		return this.newButton(texture, new Vector2(0, 0), new Vector2(1f, 1f));
+	}
+
+	public Button newButton(Button button) {
+		this.registeredButtons.add(button);
+		return button;
 	}
 
 	protected void removeCurrentBackButton() {
-		ColorSwitch.removeButton(this.backButton);
+		this.registeredButtons.remove(this.backButton);
 		this.backButton = null;
 	}
 
@@ -101,8 +182,12 @@ public abstract class Screen extends ScreenAdapter {
 		return this.components;
 	}
 
+	public List<Button> getRegisteredButtons() {
+		return this.registeredButtons;
+	}
+
 	public Texture getTexture(String name) {
-		return this.screenManager.getTexture(name);
+		return this.textureManager.getTexture(name);
 	}
 
 	@Override
@@ -135,10 +220,11 @@ public abstract class Screen extends ScreenAdapter {
 	@Override
 	public void dispose() {
 		super.dispose();
-	}
-
-	public TextureManager getTextureManager() {
-		return textureManager;
+		this.drawCalls.clear();
+		this.components.clear();
+		if (this.registeredButtons != null) {
+			this.registeredButtons.clear();
+		}
 	}
 
 	public SpriteBatch getSpriteBatch() {
@@ -151,6 +237,10 @@ public abstract class Screen extends ScreenAdapter {
 
 	public ScreenManager getScreenManager() {
 		return screenManager;
+	}
+
+	public SoundManager getSoundManager() {
+		return soundManager;
 	}
 
 	public ScreenAnimation getScreenAnimation() {

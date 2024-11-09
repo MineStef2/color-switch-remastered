@@ -1,44 +1,38 @@
 package com.colorswitch.game.screens;
 
-import com.badlogic.gdx.Application.ApplicationType;
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.JsonValue;
 import com.colorswitch.game.ColorSwitch;
-import com.colorswitch.game.ScreenManager;
-import com.colorswitch.game.TextureManager;
+import com.colorswitch.game.DrawCall;
 import com.colorswitch.game.User;
 import com.colorswitch.game.WindowUtils;
 import com.colorswitch.game.gui.GUIComponent;
+import com.colorswitch.game.gui.ScrollPanel;
 import com.colorswitch.game.gui.StringComponent;
 import com.colorswitch.game.gui.button.Button;
 
 public class Challenges extends Screen {
 	private static final Color TOP_COLOR = new Color(0.255f, 0.3725f, 0.753f, 1);
 //	private static final Logger LOGGER = new Logger(Challenges.class);
-	private final User user;
+	private User user;
 	private final int commonTextSize = (androidInstance ? 60 : 20);
+	private ScrollPanel scrollPanel;
 
-	public Challenges(SpriteBatch batch, TextureManager textureManager, ScreenManager screenManager) {
-		super(batch, textureManager, screenManager);
+	@Override
+	public void initializeUI() {
 		this.user = ColorSwitch.getInstance().getUser();
+		int windowWidth = ColorSwitch.getInstance().getConfig().window.width;
+		this.scrollPanel = new ScrollPanel(this, 0, 15);
 
-		Button back = this.addDefaultBackButton();
-		this.removeCurrentBackButton();
-		GUIComponent top = new GUIComponent(this.getTexture("top"), this)
-				.applyScale(ColorSwitch.getPlatformScale())
-				.flipYCoordinate();
-		if (Gdx.app.getType() == ApplicationType.Desktop) {
-			top.shiftPosition(0, -30);
-		}
+		GUIComponent top = this.addDefaultTopPadding();
 		top.setColor(TOP_COLOR);
-		new GUIComponent(this.getTexture("dailyChallenges"), this)
-				.applyScale(ColorSwitch.getPlatformScale())
-				.shiftPosition(back.getX() + back.getWidth() + (androidInstance ? 30 : 15),
-							   back.getY() - (androidInstance ? 10 : 5));
-		this.addDefaultBackButton();
+		Button back = this.addDefaultBackButton();
+		GUIComponent title = new GUIComponent(this.getTexture("dailyChallenges"), this)
+		.applyScale(ColorSwitch.getPlatformScale())
+		.shiftPosition( back.getX() + back.getWidth() + (androidInstance ? 30 : 15),
+				back.getY() - (androidInstance ? 10 : 5));
 
 		int stars = this.user.getStars();
 		String starsText = stars + "";
@@ -49,7 +43,6 @@ public class Challenges extends Screen {
 		StringComponent starsAmount = new StringComponent(starsText, this)
 				.setSize(androidInstance ? 90 : 45);
 		starsAmount.setColor(Color.YELLOW);
-		int windowWidth = ColorSwitch.getInstance().getConfig().window.width;
 		starsAmount.setPosition(new Vector2(windowWidth - starsAmount.getWidth() - 30,
 				back.getY() + (back.getHeight() + starsAmount.getHeight()) / 2));
 
@@ -58,6 +51,10 @@ public class Challenges extends Screen {
 		star.setPosition(starsAmount.getX() - star.getWidth(),
 				back.getY() + (back.getHeight() - star.getHeight()) / 2);
 
+		DrawCall[] topGroup = new DrawCall[] {top, back, title, star, starsAmount};
+		this.removeDrawCalls(topGroup);
+
+		int e;			// XXX: maybe do something in StringComponent that wraps the text
 		int size = (androidInstance ? 70 : 30);
 		StringComponent reminder = new StringComponent("Come back every day for", this).setSize(size);
 		reminder.setPosition(new Vector2(WindowUtils.getCenterX(reminder.getWidth()),
@@ -65,6 +62,8 @@ public class Challenges extends Screen {
 		StringComponent reminder2 = new StringComponent("new challenges!", this).setSize(size);
 		reminder2.setPosition(new Vector2(WindowUtils.getCenterX(reminder2.getWidth()),
 				reminder.getY() - reminder2.getHeight() - (androidInstance ? 20 : 10)));
+		this.scrollPanel.addComponent(reminder);
+		this.scrollPanel.addComponent(reminder2);
 
 		JsonValue challenges = this.user.getChallenges();
 		GUIComponent line = null;
@@ -81,7 +80,7 @@ public class Challenges extends Screen {
 				challengeText = "DAILY DOUBLE";
 			} else if (i == 2) {
 				challengeText = "FINISH X LEVELS";
-			} else if (i == 3) {
+			} else {
 				challengeText = "SCORE X POINTS";
 			}
 			challengeName = this.newChallengeName(challengeText, line);
@@ -108,8 +107,11 @@ public class Challenges extends Screen {
 					.setSize(androidInstance ? 100 : 40);
 			rewardText.setPosition(new Vector2(windowWidth - rewardText.getWidth() - star.getWidth() - EDGE_OFFSET * 1.2f,
 					star.getY() + (rewardText.getHeight() + star.getHeight()) / 2));
+			this.scrollPanel.addAll(new Sprite[] {line, challengeName, bannerHolder, progress, rewardText, star});
 		}
-
+		this.scrollPanel.setTopHeightLimit(reminder.getY());
+		this.scrollPanel.setBottomHeightLimit(0);
+		this.addDrawCalls(topGroup);
 		// TODO : implement the challenge progress and completion system
 	}
 
@@ -117,9 +119,9 @@ public class Challenges extends Screen {
 		GUIComponent line = new GUIComponent(this.getTexture("line_dashed"), this)
 				.applyScale(ColorSwitch.getPlatformScale());
 		float centerX = WindowUtils.getCenterX(line.getWidth());
-		if(previousBannerHolder != null) {
+		if (previousBannerHolder != null) {
 			line.shiftPosition(centerX, previousBannerHolder.getY() - line.getHeight() - EDGE_OFFSET / 2);
-		}else {
+		} else {
 			line.shiftPosition(centerX, 0);
 		}
 		return line;
@@ -135,12 +137,18 @@ public class Challenges extends Screen {
 	}
 
 	private GUIComponent newBannerHolder(StringComponent previousName) {
-		GUIComponent bannerHolder = new GUIComponent(this.getTexture("bannerHolder"), this)
+		GUIComponent bannerHolder = new GUIComponent(this.getTexture("rectanglePane"), this)
 				.applyScale(ColorSwitch.getPlatformScale());
 		if (previousName != null) {
 			bannerHolder.shiftPosition(0,
 					previousName.getY() - previousName.getHeight() - bannerHolder.getHeight() - EDGE_OFFSET / 2);
 		}
 		return bannerHolder;
+	}
+
+	@Override
+	public void show() {
+		super.show();
+		this.scrollPanel.resetPositions();
 	}
 }

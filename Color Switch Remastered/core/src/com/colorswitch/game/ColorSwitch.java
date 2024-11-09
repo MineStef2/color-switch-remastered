@@ -1,7 +1,9 @@
 package com.colorswitch.game;
 
 import java.io.File;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -10,16 +12,16 @@ import com.badlogic.gdx.Files.FileType;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
+import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.utils.Null;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.colorswitch.game.GameConfig.FileConfig;
 import com.colorswitch.game.GameConfig.FileConfig.AudioConfig;
+import com.colorswitch.game.GameConfig.FileConfig.GameModesConfig;
 import com.colorswitch.game.GameConfig.FileConfig.IconConfig;
 import com.colorswitch.game.GameConfig.FileConfig.SettingsConfig;
 import com.colorswitch.game.GameConfig.FileConfig.TextureConfig;
@@ -27,34 +29,35 @@ import com.colorswitch.game.GameConfig.FileConfig.UserConfig;
 import com.colorswitch.game.GameConfig.GLConfig;
 import com.colorswitch.game.GameConfig.WindowConfig;
 import com.colorswitch.game.Logger.LogLevel;
-import com.colorswitch.game.gui.button.Button;
-import com.colorswitch.game.gui.button.Button.ButtonEventType;
-import com.colorswitch.game.gui.button.ButtonHoverBehavior;
-import com.colorswitch.game.gui.button.ButtonHoverOutBehavior;
+import com.colorswitch.game.level.LevelManager;
+import com.colorswitch.game.screens.GameModeScreen;
 import com.colorswitch.game.screens.Screen;
-import com.colorswitch.game.screens.ScreenBinding;
+import com.colorswitch.game.screens.Screens;
 import com.colorswitch.game.screens.Settings;
-import com.colorswitch.game.sound.AudioOutput;
 import com.colorswitch.game.sound.SoundManager;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 
-public class ColorSwitch extends Game {
+public class ColorSwitch extends Game implements ProcessTimer {
+	/*
+	 * FIXME ASAP: The current scaling implementation is NOT okay;
+	 * On desktop, the scale should be 0.43f instead of 0.5f, and on android it should be 1f (since it's
+	 * the platform from which the original sprites were obtained)
+	 */
 	public static final Color BACKGROUND_COLOR = new Color(0.16078f, 0.16078f, 0.16078f, 1);
 	public static final Vector2 ANDROID_SCALE = new Vector2(1, 1);
-	public static final Vector2 COMMON_DESKTOP_SCALE = new Vector2(0.5f, 0.5f);
+	public static final Vector2 COMMON_DESKTOP_SCALE = new Vector2(0.324f, 0.2917f);				/* XXX */
 	public static final Color TRANSPARENT = new Color(1, 1, 1, 0);
+	static Vector2 scale;
 	private static final Logger LOGGER = new Logger(ColorSwitch.class);
-	private static final List<Button> REGISTERED_BUTTONS = new ArrayList<Button>();
 	private static ColorSwitch instance;
 	private final GameConfig config;
 	private SpriteBatch batch;
 	private TextureManager textureManager;
-	private int currentMouseX = Integer.MIN_VALUE;
-	private int currentMouseY = Integer.MIN_VALUE;
 	private ScreenManager screenManager;
+	private LevelManager levelManager;
 	private SoundManager soundManager;
 	private User user;
 	private boolean reloaded = false;
@@ -66,48 +69,69 @@ public class ColorSwitch extends Game {
 
 	@Override
 	public void create() {
-		long startTime = System.currentTimeMillis();
+		Instant startTime = this.startTimer();
 		Gdx.app.setLogLevel(this.config.logLevel);
 		LOGGER.info("Creating game");
+
+		WindowConfig window = this.config.window;
 		if (Gdx.app.getType() == ApplicationType.Android && this.config.window.width == 0 && this.config.window.height == 0) {
 			TextureRegion screen = ScreenUtils.getFrameBufferTexture();
-			this.config.window.width = screen.getRegionWidth();
-			this.config.window.height = screen.getRegionHeight();
+			window.width = screen.getRegionWidth();
+			window.height = screen.getRegionHeight();
 		}
+		SharedConstants.commonScale = new Vector2(SharedConstants.ASPECT_RATIO, SharedConstants.ASPECT_RATIO);
 		this.batch = new SpriteBatch();
-		TextureConfig textureConfig = this.config.file.texture;
-		UserConfig userConfig = this.config.file.user;
-		this.user = new User(Gdx.files.getFileHandle(userConfig.dataFile.getName(), userConfig.dataFileType), this);
-		this.textureManager = new TextureManager(Gdx.files.getFileHandle(textureConfig.texturesDir, textureConfig.texturesFileType),textureConfig.fileExtension);
-		this.screenManager = new ScreenManager(this.textureManager, this.batch);
-		AudioConfig audioConfig = this.config.file.audio;
-		FileHandle musicDir = Gdx.files.getFileHandle(audioConfig.audioDir, audioConfig.audioFileType);
-		this.soundManager = new SoundManager(musicDir, audioConfig.configFile, audioConfig.audioFileType);
 
-		if (!reloaded) {
-			Screen mainMenu = this.screenManager.getScreen("mainMenu");
-			this.setScreen(mainMenu);
-			this.screenManager.currentScreen = this.screenManager.previousScreen = mainMenu;
+		UserConfig userConfig = this.config.file.user;
+		this.user = new User(Gdx.files.getFileHandle(userConfig.dataFile.getName(), userConfig.dataFileType));
+
+		TextureConfig textureConfig = this.config.file.texture;
+		FileHandle texturesDir = Gdx.files.getFileHandle(textureConfig.texturesDir, textureConfig.texturesFileType);
+		this.textureManager = new TextureManager(texturesDir, textureConfig.fileExtension);
+
+		AudioConfig audioConfig = this.config.file.audio;
+		FileHandle audioDir = Gdx.files.getFileHandle(audioConfig.audioDir, audioConfig.audioFileType);
+		this.soundManager = new SoundManager(audioDir, audioConfig.configFile);
+
+		GameModesConfig modesConfig = this.config.file.gameModes;
+		FileHandle modesDir = Gdx.files.getFileHandle(modesConfig.modesDir.getName(), modesConfig.modesDirFileType);
+		this.levelManager = new LevelManager(modesDir, modesConfig.modeSourcesFile.getName());
+
+		this.screenManager = new ScreenManager();
+		this.screenManager.bootstrap();
+
+		Gdx.input.setInputProcessor(new InputAdapter() {
+			@Override
+			public boolean scrolled(float amountX, float amountY) {
+				screenManager.onScroll(amountX, amountY);
+				return true;
+			}
+
+			@Override
+			public boolean touchDown(int screenX, int screenY, int pointer, int buttonId) {
+				screenManager.onLeftClick(screenX, screenY, buttonId);
+				return false;
+			}
+
+//			@Override
+//			public boolean touchUp(int screenX, int screenY, int pointer, int buttonId) {
+//				return false;
+//			}
+		});
+
+		if (!this.reloaded) {
 			LOGGER.info("Initialized core game");
 			if (Settings.music.getValue()) {
 				this.soundManager.getAudioOutput("mainMenu").play();
 			}
 		}
 
-		REGISTERED_BUTTONS.forEach((button) -> {
-			ScreenBinding binding = button.getScreenBinding();
-			if (binding != null) {
-				button.bindScreen(binding.bind());
-			}
-			button.reloadClickSound();
-		});
-		long timeElapsed = System.currentTimeMillis() - startTime;
-		LOGGER.info("Finished creating game in "+ timeElapsed + "ms");
+		LOGGER.info("Finished creating game in " + this.getTotalTimeElapsed(startTime));
 	}
 
 	/**
 	 * Developer note: Every animation speed value (rotation, fading, scaling, etc.)
-	 * is affected by the deltaTime, hence the values will be higher than what they
+	 * is affected by deltaTime, hence the values will be higher than what they
 	 * might seem.
 	 **/
 	@Override
@@ -115,63 +139,61 @@ public class ColorSwitch extends Game {
 		super.render();
 		int currentMouseX = Gdx.input.getX();
 		int currentMouseY = Gdx.input.getY();
-		if (this.currentMouseX == Integer.MIN_VALUE && this.currentMouseY == Integer.MIN_VALUE) {
-			this.currentMouseX = currentMouseX;
-			this.currentMouseY = currentMouseY;
-		} else if (this.currentMouseX != currentMouseX || this.currentMouseY != currentMouseY) {
-			this.currentMouseX = currentMouseX;
-			this.currentMouseY = currentMouseY;
-		}
-		REGISTERED_BUTTONS.forEach((button) -> {
-			int convertedCoord_mouseY = this.config.window.height - this.currentMouseY;
-			if (button.checkEventAt(currentMouseX, convertedCoord_mouseY, ButtonEventType.HOVER)
-					&& !Gdx.input.isTouched()
-					&& !(Gdx.app.getType() == ApplicationType.Android)) {
-				this.onHover(button, currentMouseX, convertedCoord_mouseY);
-			}
-			if (button.checkEventAt(currentMouseX, convertedCoord_mouseY, ButtonEventType.HOVER_OUT)
-					&& !Gdx.input.isTouched()
-					&& !(Gdx.app.getType() == ApplicationType.Android)) {
-				this.onHoverOut(button, currentMouseX, convertedCoord_mouseY);
-			}
-			if (Gdx.input.justTouched()) {
-				int clickX = currentMouseX;
-				if (button.checkEventAt(clickX, convertedCoord_mouseY, ButtonEventType.CLICK)
-						&& button.getOwner().isActive()) {
-					this.onButtonClicked(button, currentMouseX, convertedCoord_mouseY);
-				}
-			}
-		});
-		this.screenManager.updateAnimations();
 
-		// developer tools
+		// TODO: need to refactor input management because checking every frame can be slow
+		this.screenManager.update(currentMouseX, currentMouseY, Gdx.graphics.getDeltaTime());
+
+		/*
+		 * The game is not tested for memory usage, if you encounter memory problems in
+		 * the future, surround this code in a try-catch block with a OutOfMemoryError
+		 *
+		 * Another problem would be the number of draw calls being too high. If this
+		 * happens, change the rendering engine with one that splits all the draw calls
+		 * into multiple threads, then rendering them in each thread
+		 */
+
+		// developer tool
 		if (Gdx.input.isKeyJustPressed(Keys.F1) && this.config.logLevel == LogLevel.DEBUG.getId()) {
 			LOGGER.debug("reloading!");
-			this.reloaded = true;
-			LOGGER.debug("current screen: " + format(this.getScreen()) + " (old)");
-			Screen prevScreen = this.screenManager.previousScreen;
-			LOGGER.debug("prev screen: " + format(prevScreen) + " (old)");
-			String name = null;
-			String prevName = null;
-			for (Map.Entry<String, Screen> entry : this.screenManager.getScreens().entrySet()) {
-				Screen target = entry.getValue();
-				if (this.getScreen().equals(target)) {
-					name = entry.getKey();
+			List<Screen> savedNavigator = this.screenManager.screenNavigator;
+			Map<String, Integer> savedGameModeNavigator = new HashMap<String, Integer>();
+			for (int i = 0; i < savedNavigator.size(); i++) {
+				if (!(savedNavigator.get(i) instanceof GameModeScreen)) {
+					continue;
 				}
-				if (prevScreen.equals(target)) {
-					prevName = entry.getKey();
+
+				for (Map.Entry<String, GameModeScreen> entry: this.screenManager.gameModeScreens.entrySet()) {
+					if (screen.equals(entry.getValue())) {
+						savedGameModeNavigator.put(entry.getKey(), i);
+					}
 				}
+				savedNavigator.remove(i);
 			}
-			REGISTERED_BUTTONS.clear();
+			Screens[] savedReferences = new Screens[savedNavigator.size()];
+			for (int i = 0; i < savedReferences.length; i++) {
+				savedReferences[i] = Screens.fromInstance(savedNavigator.get(i));
+			}
+			LOGGER.debug("pre reload current screen: " + Screen.logFormat(this.screenManager.currentScreen) + " (old instance)");
+			LOGGER.debug("pre reload previous screen: " + Screen.logFormat(this.screenManager.previousScreen) + " (old instance)");
+
 			this.dispose();
 			this.create();
-			Map<String, Screen> reloadedScreens = this.screenManager.getScreens();
-			Screen screen = reloadedScreens.get(name);
-			prevScreen = reloadedScreens.get(prevName);
-			LOGGER.debug("post reload screen: " + format(screen));
-			LOGGER.debug("post reload prev screen: " + format(prevScreen));
-			this.setScreen(screen);
-			this.screenManager.previousScreen = prevScreen;
+			this.reloaded = true;
+			savedNavigator = new ArrayList<Screen>(savedReferences.length);
+			for (int i = 0; i < savedReferences.length; i++) {
+				savedNavigator.add(this.screenManager.getScreenInstance(savedReferences[i]));
+			}
+			if (!savedGameModeNavigator.equals(Map.of())) {
+				for (Map.Entry<String, Integer> entry: savedGameModeNavigator.entrySet()) {
+					savedNavigator.add(entry.getValue(), this.screenManager.getGameModeScreenInstance(entry.getKey()));
+				}
+			}
+			this.screenManager.screenNavigator = savedNavigator;
+			this.screenManager.currentScreen = savedNavigator.get(savedNavigator.size() - 1);
+			this.screenManager.updatePreviousScreen();
+			this.setScreen(this.screenManager.currentScreen);
+			LOGGER.debug("post reload current screen: " + Screen.logFormat(this.screenManager.currentScreen));
+			LOGGER.debug("post reload previous screen: " + Screen.logFormat(this.screenManager.previousScreen));
 		}
 	}
 
@@ -179,7 +201,6 @@ public class ColorSwitch extends Game {
 		OptionParser optionParser = new OptionParser();
 		optionParser.allowsUnrecognizedOptions();
 		OptionSpec<Integer> widthSpec = optionParser.accepts("width").withRequiredArg().ofType(Integer.TYPE).defaultsTo(0);
-		OptionSpec<Integer> heightSpec = optionParser.accepts("height").withRequiredArg().ofType(Integer.TYPE).defaultsTo(0);
 		OptionSpec<String> titleSpec = optionParser.accepts("title").withRequiredArg().ofType(String.class).defaultsTo("Color Switch Remastered");
 		OptionSpec<Void> windowDecoratedSpec = optionParser.accepts("windowDecorated");
 		OptionSpec<Void> windowResizableSpec = optionParser.accepts("windowResizable");
@@ -188,18 +209,21 @@ public class ColorSwitch extends Game {
 		OptionSpec<String> textureFileExtSpec = optionParser.accepts("textureFileExtension").withRequiredArg().ofType(String.class).defaultsTo(".png");
 		OptionSpec<FileType> textureFileTypeSpec = optionParser.accepts("textureFileType").withRequiredArg().ofType(FileType.class).defaultsTo(FileType.Internal);
 		OptionSpec<String> texturesDirSpec = optionParser.accepts("texturesDir").withRequiredArg().ofType(String.class).defaultsTo("textures");
-		OptionSpec<String> audioConfigFileSpec = optionParser.accepts("audioConfigPath").withRequiredArg().ofType(String.class).defaultsTo("audioConfig.json");
+		OptionSpec<String> audioConfigFileSpec = optionParser.accepts("audioConfigPath").withRequiredArg().ofType(String.class).defaultsTo("audioConfig");
 		OptionSpec<FileType> audioFileTypeSpec = optionParser.accepts("audioFileType").withRequiredArg().ofType(FileType.class).defaultsTo(FileType.Internal);
 		OptionSpec<String> audioDirSpec = optionParser.accepts("audioDir").withRequiredArg().ofType(String.class).defaultsTo("audio");
 		OptionSpec<Void> disableAudioSpec = optionParser.accepts("disableAudio");
-		OptionSpec<String> settingsFileSpec = optionParser.accepts("settingsPath").withRequiredArg().ofType(String.class).defaultsTo("settings.json");
+		OptionSpec<String> settingsFileSpec = optionParser.accepts("settingsFile").withRequiredArg().ofType(String.class).defaultsTo("settings");
 		OptionSpec<FileType> settingsFileTypeSpec = optionParser.accepts("settingsFileType").withRequiredArg().ofType(FileType.class).defaultsTo(FileType.Local);
 		OptionSpec<String> glDebugMsgSeveritySpec = optionParser.accepts("glDebugMessageSeverity").withRequiredArg().ofType(String.class).defaultsTo("HIGH");
 		OptionSpec<Void> glDebugMsgSpec = optionParser.accepts("enableGlDebugMessages");
 		OptionSpec<String> iconFileSpec = optionParser.accepts("iconPath").withRequiredArg().ofType(String.class).defaultsTo("icon.jpg");
 		OptionSpec<FileType> iconFileTypeSpec = optionParser.accepts("iconFileType").withRequiredArg().ofType(FileType.class).defaultsTo(FileType.Internal);
-		OptionSpec<String> userDataFileSpec = optionParser.accepts("userDataPath").withRequiredArg().ofType(String.class).defaultsTo("userData.json");
+		OptionSpec<String> userDataFileSpec = optionParser.accepts("userDataFile").withRequiredArg().ofType(String.class).defaultsTo("userData");
 		OptionSpec<FileType> userDataFileTypeSpec = optionParser.accepts("userDataFileType").withRequiredArg().ofType(FileType.class).defaultsTo(FileType.Local);
+		OptionSpec<String> modesDirNameSpec = optionParser.accepts("modesDir").withRequiredArg().ofType(String.class).defaultsTo("modes");
+		OptionSpec<FileType> modesDirFileTypeSpec = optionParser.accepts("modesDirFileType").withRequiredArg().ofType(FileType.class).defaultsTo(FileType.Internal);
+		OptionSpec<String> modeSourcesFileSpec = optionParser.accepts("modeSourcesFile").withRequiredArg().ofType(String.class).defaultsTo("sourceFiles");
 		OptionSet optionSet = optionParser.parse(args);
 		List<?> unrecognizedOptions = optionSet.nonOptionArguments();
 		if (!unrecognizedOptions.isEmpty()) {
@@ -207,7 +231,7 @@ public class ColorSwitch extends Game {
 		}
 
 		int windowWidth = widthSpec.value(optionSet);
-		int windowHeight = heightSpec.value(optionSet);
+		int windowHeight = windowWidth * 2;		// aspect ratio 9:18 or 1:2
 		String title = titleSpec.value(optionSet);
 		boolean decorated = optionSet.has(windowDecoratedSpec);
 		boolean resizable = optionSet.has(windowResizableSpec);
@@ -222,21 +246,25 @@ public class ColorSwitch extends Game {
 		String texturesDir = texturesDirSpec.value(optionSet);
 		FileType textureConfigFileType = textureFileTypeSpec.value(optionSet);
 		TextureConfig textureConfig = new TextureConfig(textureFileExtension, texturesDir, textureConfigFileType);
-		String audioConfigFile = audioConfigFileSpec.value(optionSet);
+		String audioConfigFile = audioConfigFileSpec.value(optionSet) + ".json";
 		String audioDir = audioDirSpec.value(optionSet);
 		FileType audioFileType = audioFileTypeSpec.value(optionSet);
 		boolean disableAudio = optionSet.has(disableAudioSpec);
 		AudioConfig audioConfig = new AudioConfig(audioConfigFile, audioDir, audioFileType, disableAudio);
-		File settingsFile = new File(settingsFileSpec.value(optionSet));
+		File settingsFile = new File(settingsFileSpec.value(optionSet) + ".json");
 		FileType settingsFileType = settingsFileTypeSpec.value(optionSet);
 		SettingsConfig settingsConfig = new SettingsConfig(settingsFile, settingsFileType);
 		File iconFile = new File(iconFileSpec.value(optionSet));
 		FileType iconFileType = iconFileTypeSpec.value(optionSet);
 		IconConfig iconConfig = new IconConfig(iconFile, iconFileType);
-		File userDataFile = new File(userDataFileSpec.value(optionSet));
+		File userDataFile = new File(userDataFileSpec.value(optionSet) + ".json");
 		FileType userDataFileType = userDataFileTypeSpec.value(optionSet);
 		UserConfig userConfig = new UserConfig(userDataFile, userDataFileType);
-		FileConfig fileConfig = new FileConfig(textureConfig, audioConfig, iconConfig, settingsConfig, userConfig);
+		File modesDir = new File(modesDirNameSpec.value(optionSet));
+		FileType modesDirFileType = modesDirFileTypeSpec.value(optionSet);
+		File modeSourcesFile = new File(modeSourcesFileSpec.value(optionSet) + ".json");
+		GameModesConfig modesConfig = new GameModesConfig(modesDir, modesDirFileType, modeSourcesFile);
+		FileConfig fileConfig = new FileConfig(textureConfig, audioConfig, iconConfig, settingsConfig, userConfig, modesConfig);
 
 		String glDebugMsgSeverity = glDebugMsgSeveritySpec.value(optionSet);
 		boolean enabledGlDebugMessages = optionSet.has(glDebugMsgSpec);
@@ -246,90 +274,26 @@ public class ColorSwitch extends Game {
 		return new GameConfig(windowConfig, fileConfig, glConfig, logLevel);
 	}
 
-	@Null @Debug
-	public static String format(@Null Object object) {
-		try {
-			return object.toString().replace("com.colorswitch.game.screens.", "");
-		} catch (NullPointerException nullObject) {
-			return null;
-		}
-	}
-
-	@Null @Debug
-	public static String format(@Null Object object, String target) {
-		try {
-			return object.toString().replace(target, "");
-		} catch (NullPointerException nullObject) {
-			return null;
-		}
-	}
-
-	public void onButtonClicked(Button button, float xpos, float ypos) {
-		try {
-			button.getClickBehavior().onClick(button, xpos, ypos);
-		} catch (NullPointerException nullBehavior) {
-			LOGGER.warn("Attempt to run a null onClick behavior, which is a stupid thing of course... Anyway here's the stack trace:");
-			nullBehavior.printStackTrace();
-		}
-		AudioOutput clickSound = button.getClickSound();
-		if (clickSound != null && Settings.soundEffects.getValue()) {
-			clickSound.play();
-		}
-	}
-
-	public void onHover(Button button, float xpos, float ypos) {
-		ButtonHoverBehavior hoverBehavior = button.getHoverBehavior();
-		if (hoverBehavior != null) {
-			hoverBehavior.onHover(button, xpos, ypos);
-		}
-	}
-
-	public void onHoverOut(Button button, float xpos, float ypos) {
-		ButtonHoverOutBehavior hoverOutBehavior = button.getHoverOutbehavior();
-		if (hoverOutBehavior != null) {
-			hoverOutBehavior.onHoverOut(button, xpos, ypos);
-		}
-	}
-
-	public static Button addButton(Texture texture, Vector2 position, Vector2 scale, Screen owner) {
-		Button button = new Button(texture, position, scale, owner);
-		REGISTERED_BUTTONS.add(button);
-		return button;
-	}
-
-	public static Button addButton(Texture texture, Vector2 position, Screen owner) {
-		return addButton(texture, position, new Vector2(1f, 1f), owner);
-	}
-
-	public static Button addButton(Texture texture, Screen owner) {
-		return addButton(texture, new Vector2(0, 0), new Vector2(1f, 1f), owner);
-	}
-
-	public static Button addButton(Button button) {
-		REGISTERED_BUTTONS.add(button);
-		return button;
-	}
-
-	public static void removeButton(Button button) {
-		REGISTERED_BUTTONS.remove(button);
-	}
-
 	public static Vector2 getPlatformScale(Vector2 desktopScale) {
 		return Gdx.app.getType() == ApplicationType.Android ? ANDROID_SCALE : desktopScale;
 	}
 
 	public static Vector2 getPlatformScale() {
-		return Gdx.app.getType() == ApplicationType.Android ? ANDROID_SCALE : COMMON_DESKTOP_SCALE;
+		return Gdx.app.getType() == ApplicationType.Android ? ANDROID_SCALE : SharedConstants.commonScale;
+	}
+
+	public void setScreen(Screens screen) {
+		this.setScreen(this.screenManager.getScreenInstance(screen));
+	}
+
+	public Screens getActiveScreen() {
+		return Screens.fromInstance((Screen) this.getScreen());
 	}
 
 	@Override
 	public void dispose() {
 		super.dispose();
 		this.screenManager.dispose();
-	}
-
-	public static List<Button> getRegisteredButtons() {
-		return REGISTERED_BUTTONS;
 	}
 
 	public static ColorSwitch getInstance() {
@@ -344,7 +308,27 @@ public class ColorSwitch extends Game {
 		return soundManager;
 	}
 
+	public TextureManager getTextureManager() {
+		return textureManager;
+	}
+
+	public ScreenManager getScreenManager() {
+		return screenManager;
+	}
+
 	public User getUser() {
 		return user;
+	}
+
+	public SpriteBatch getBatch() {
+		return batch;
+	}
+
+	public boolean isReloaded() {
+		return reloaded;
+	}
+
+	public LevelManager getLevelManager() {
+		return levelManager;
 	}
 }

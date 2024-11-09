@@ -1,29 +1,22 @@
 package com.colorswitch.game.gui.button;
 
-import com.badlogic.gdx.Application.ApplicationType;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Null;
-import com.colorswitch.game.ColorSwitch;
-import com.colorswitch.game.ScreenManager;
 import com.colorswitch.game.gui.GUIComponent;
 import com.colorswitch.game.screens.Screen;
-import com.colorswitch.game.screens.ScreenBinding;
+import com.colorswitch.game.screens.Screens;
 import com.colorswitch.game.sound.AudioOutput;
 
 public class Button extends GUIComponent {
-	public static final Vector2 DESKTOP_SCALE = new Vector2(0.5f, 0.5f);
-	public static final Vector2 PLATFORM_SCALE = (Gdx.app.getType() == ApplicationType.Android)
-			? ColorSwitch.ANDROID_SCALE
-			: DESKTOP_SCALE;
 	public static final Color HOVER_COLOR = new Color(0.78431f, 0.78431f, 0.78431f, 1);
-	private boolean hovering;
+	public boolean hovering;
+	public boolean flag_nullClickBehavior = false;
 	private boolean overrideHoverColor;
 	private Color overridenHoverColor;
 	private Screen boundScreen;
-	private ScreenBinding screenBinding;
 	private ButtonBehavior behavior;
 
 	public Button(Texture texture, Vector2 position, Vector2 scale, Screen owner) {
@@ -39,13 +32,14 @@ public class Button extends GUIComponent {
 
 	public Button bindScreen(Screen screen) {
 		this.boundScreen = screen;
+		if (this.behavior.getClickBehavior() == null) {
+			this.behavior.setClickBehavior(this.owner.getScreenManager()::defaultScreenSwitchBehavior);
+		}
 		return this;
 	}
 
-	public Button applyScreen(String screenName) {
-		ScreenManager screenManager = this.owner.getScreenManager();
-		this.screenBinding = () -> screenManager.getScreen(screenName);
-		this.behavior.setClickBehavior((button, xpos, ypos) -> screenManager.switchScreen(this.boundScreen));
+	public Button bindScreen(Screens screen) {
+		this.bindScreen(this.owner.getScreenManager().getScreenInstance(screen));
 		return this;
 	}
 
@@ -75,28 +69,20 @@ public class Button extends GUIComponent {
 		return this;
 	}
 
-	public void reloadClickSound() {
-		this.behavior.setClickSound(ColorSwitch.getInstance().getSoundManager().getAudioOutput("click"));
-	}
-
-	public boolean isHovering() {
-		return hovering;
-	}
-
 	public boolean isHoverColorOverridden() {
 		return overrideHoverColor;
 	}
 
-	public boolean checkEventAt(float x, float y, ButtonEventType type) {
+	public ButtonEventType checkEventAt(float x, float y) {
 		this.hovering = this.getBoundingRectangle().contains(x, y);
-		if (type == ButtonEventType.CLICK || type == ButtonEventType.HOVER) {
-			return hovering;
-		} else if (type == ButtonEventType.HOVER_OUT) {
-			return !hovering;
-		} else {
-			System.err.println("Button.checkEventAt() returned false!");
-			return false;
+		if (Gdx.input.justTouched() && this.hovering) {
+			return ButtonEventType.CLICK;
+		} else if (this.hovering && !Gdx.input.isTouched()) {
+			return ButtonEventType.HOVER;
+		} else if (!this.hovering && !Gdx.input.isTouched()) {
+			return ButtonEventType.HOVER_OUT;
 		}
+		return null;
 	}
 
 	public Color getOverridenHoverColor() {
@@ -105,10 +91,6 @@ public class Button extends GUIComponent {
 
 	public Screen getBoundScreen() {
 		return boundScreen;
-	}
-
-	public ScreenBinding getScreenBinding() {
-		return screenBinding;
 	}
 
 	public ButtonClickBehavior getClickBehavior() {
